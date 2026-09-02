@@ -7,7 +7,7 @@ with actual_revenue as (SELECT
     JOIN DA.session s ON o.ga_session_id = s.ga_session_id
     GROUP BY s.date), 
 
- 
+  
 predict_revenue as (SELECT
         date,
         SUM(predict) AS daily_predict_revenue,
