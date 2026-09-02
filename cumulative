@@ -1,0 +1,34 @@
+with actual_revenue as (SELECT
+        s.date,
+        0 AS daily_predict_revenue,
+        SUM(p.price) AS daily_actual_revenue
+    FROM DA.product p
+    JOIN DA.order o ON p.item_id = o.item_id
+    JOIN DA.session s ON o.ga_session_id = s.ga_session_id
+    GROUP BY s.date),
+
+
+predict_revenue as (SELECT
+        date,
+        SUM(predict) AS daily_predict_revenue,
+        0 AS daily_actual_revenue
+    FROM DA.revenue_predict
+    GROUP BY date),
+
+
+revenues as (SELECT
+    COALESCE(predict_revenue.date, actual_revenue.date) as date,
+    SUM(predict_revenue.daily_predict_revenue) AS daily_predict,
+    SUM(actual_revenue.daily_actual_revenue) AS daily_actual
+FROM predict_revenue
+FULL OUTER JOIN actual_revenue
+on predict_revenue.date=actual_revenue.date
+group by date)
+
+
+SELECT
+date,
+(sum(daily_actual) over(order by date))/
+(sum(daily_predict) over(order by date))*100 as percent_done
+from revenues
+order by date
