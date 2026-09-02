@@ -5,7 +5,7 @@ with actual_revenue as (SELECT
     FROM DA.product p
     JOIN DA.order o ON p.item_id = o.item_id
     JOIN DA.session s ON o.ga_session_id = s.ga_session_id
-    GROUP BY s.date),
+    GROUP BY s.date), 
 
 
 predict_revenue as (SELECT
