@@ -1,0 +1,50 @@
+# Revenue & Account Activity by Continent
+
+A SQL query that builds a continent-level summary combining **revenue** (total, by device) and **user activity** (accounts, verified accounts, sessions) from raw event/session data.
+
+## What it does
+
+The query answers: *"For each continent, how much revenue do we generate (and from which device), what share of total revenue is that, and how does it compare to our account base and session volume?"*
+
+It's built from three CTEs:
+
+| CTE | Purpose |
+|---|---|
+| `revenue` | Joins `session_params` → `order` → `product` → `session` and aggregates revenue per continent, split by mobile/desktop device. |
+| `revenue_percent` | Adds `percent_revenue_from_total`, each continent's share of global revenue, using a window function (`SUM(...) OVER()`). |
+| `countings` | Joins `account` → `account_session` → `session` → `session_params` to count total accounts, verified accounts, and sessions per continent. |
+
+The final `SELECT` joins `revenue_percent` and `countings` on `continent` to produce one row per continent with all metrics side by side.
+
+## Tables used
+
+- `DA.session_params` — session-level dimensions, incl. `continent`, `device`
+- `DA.session` — session records
+- `DA.order` — orders, linked to sessions via `ga_session_id`
+- `DA.product` — product prices, linked to orders via `item_id`
+- `DA.account` — user accounts, incl. `is_verified` flag
+- `DA.account_session` — bridge table linking accounts to sessions
+
+## Output columns
+
+| Column | Description |
+|---|---|
+| `continent` | Continent grouping |
+| `total_revenue` | Sum of `product.price` across all orders in the continent |
+| `Revenue_from_Mobile` | Revenue from sessions where `device = 'mobile'` |
+| `Revenue_from_Desktop` | Revenue from sessions where `device = 'desktop'` |
+| `percent_revenue_from_total` | This continent's revenue as % of total revenue across all continents |
+| `Account_Count` | Number of accounts associated with the continent (via session activity) |
+| `Verified_Account` | Number of those accounts with `is_verified = 1` |
+| `Session_Count` | Number of sessions recorded for the continent |
+
+## Notes / assumptions
+
+- Revenue and account counts are joined **only** on `continent`, so a continent will appear in the final result only if it has both revenue and account/session data.
+- `countings` uses a `left join` on `account_session` but an inner `join` on `session`/`session_params` — accounts with no matching session data are excluded from the session-derived counts.
+- Device-split revenue (`Revenue_from_Mobile` / `Revenue_from_Desktop`) relies on `session_params.device`; sessions with other/missing device values won't be captured by either bucket but still count toward `total_revenue`.
+- `Account_Count` counts accounts *by continent of their sessions*, not a fixed "home continent" field — a single account active from multiple continents could be counted more than once.
+
+## How to use
+
+Run directly against the `DA` schema. No parameters required — the query returns one row per continent covering the full dataset in the underlying tables.
